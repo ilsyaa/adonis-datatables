@@ -6,6 +6,7 @@ import { LucidModel, ModelQueryBuilderContract } from '@adonisjs/lucid/types/mod
 import lodash from 'lodash'
 import collect from 'collect.js'
 import { sprintf } from 'sprintf-js'
+import { DateTime } from 'luxon'
 
 export default class DatabaseDataTable extends DataTableAbstract {
   protected nullsLast: boolean = false
@@ -182,6 +183,123 @@ export default class DatabaseDataTable extends DataTableAbstract {
     ;(query as any)[method](sql, [this.prepareKeyword(keyword)])
   }
 
+  protected compileQueryColumnControlSearch(
+    query:
+      | ModelQueryBuilderContract<LucidModel, any>
+      | DatabaseQueryBuilderContract<Dictionary<any, string>>,
+    columnName: string,
+    boolean: string = 'or',
+    columnControl: any
+  ): void {
+    let column = this.addTablePrefix(query, columnName)
+    column = this.castColumn(column)
+    let sql = ''
+    let bindings: any = []
+    const logic = columnControl['logic'] || 'equal'
+    const keyword = this.config.isCaseInsensitive()
+      ? columnControl['value'].toLowerCase()
+      : columnControl['value']
+    const type = columnControl['type']
+
+    switch (logic) {
+      case 'contains':
+        sql = this.config.isCaseInsensitive() ? `LOWER(${column}) LIKE ?` : `${column} LIKE ?`
+        bindings = [`%${keyword}%`]
+        break
+      case 'notContains':
+        sql = this.config.isCaseInsensitive()
+          ? `LOWER(${column}) NOT LIKE ?`
+          : `${column} NOT LIKE ?`
+        bindings = [`%${keyword}%`]
+        break
+      case 'starts':
+        sql = this.config.isCaseInsensitive() ? `LOWER(${column}) LIKE ?` : `${column} LIKE ?`
+        bindings = [`${keyword}%`]
+        break
+      case 'ends':
+        sql = this.config.isCaseInsensitive() ? `LOWER(${column}) LIKE ?` : `${column} LIKE ?`
+        bindings = [`%${keyword}`]
+        break
+      case 'equal':
+        if (Helper.isDate(keyword, type)) {
+          const start = DateTime.fromFormat(keyword, 'yyyy-MM-dd').startOf('day').toSQL()
+          const end = DateTime.fromFormat(keyword, 'yyyy-MM-dd').endOf('day').toSQL()
+          sql = `${column} BETWEEN ? AND ?`
+          bindings = [start, end]
+        } else if (Helper.isDateTime(keyword, type)) {
+          sql = `${column} = ?`
+          bindings = [DateTime.fromISO(keyword).toUTC().toSQL()]
+        } else {
+          sql = this.config.isCaseInsensitive() ? `LOWER(${column}) = ?` : `${column} = ?`
+          bindings = [keyword]
+        }
+        break
+      case 'notEqual':
+        if (Helper.isDate(keyword, type)) {
+          const start = DateTime.fromFormat(keyword, 'yyyy-MM-dd').startOf('day').toSQL()
+          const end = DateTime.fromFormat(keyword, 'yyyy-MM-dd').endOf('day').toSQL()
+          sql = `${column} NOT BETWEEN ? AND ?`
+          bindings = [start, end]
+        } else if (Helper.isDateTime(keyword, type)) {
+          sql = `${column} != ?`
+          bindings = [DateTime.fromISO(keyword).toUTC().toSQL()]
+        } else {
+          sql = this.config.isCaseInsensitive() ? `LOWER(${column}) != ?` : `${column} != ?`
+          bindings = [keyword]
+        }
+        break
+      case 'greater':
+        if (Helper.isDate(keyword, type)) {
+          const datetime = DateTime.fromFormat(keyword, 'yyyy-MM-dd').startOf('day').toSQL()
+          sql = `${column} > ?`
+          bindings = [datetime]
+        } else if (Helper.isDateTime(keyword, type)) {
+          sql = `${column} > ?`
+          bindings = [DateTime.fromISO(keyword).toUTC().toSQL()]
+        } else {
+          sql = `${column} > ?`
+          bindings = [keyword]
+        }
+        break
+      case 'greaterOrEqual':
+        sql = `${column} >= ?`
+        bindings = [keyword]
+        break
+      case 'less':
+        if (Helper.isDate(keyword, type)) {
+          const datetime = DateTime.fromFormat(keyword, 'yyyy-MM-dd').startOf('day').toSQL()
+          console.log(datetime)
+          sql = `${column} < ?`
+          bindings = [datetime]
+        } else if (Helper.isDateTime(keyword, type)) {
+          sql = `${column} < ?`
+          bindings = [DateTime.fromISO(keyword).toUTC().toSQL()]
+        } else {
+          sql = `${column} < ?`
+          bindings = [keyword]
+        }
+        break
+      case 'lessOrEqual':
+        sql = `${column} <= ?`
+        bindings = [keyword]
+        break
+      case 'empty':
+        sql = `(${column} IS NULL OR ${column} = '')`
+        bindings = []
+        break
+      case 'notEmpty':
+        sql = `(${column} IS NOT NULL AND ${column} != '')`
+        bindings = []
+        break
+      default:
+        sql = `${column} = ?`
+        bindings = [keyword]
+    }
+
+    const method: string = lodash.lowerFirst(`${boolean}WhereRaw`)
+    ;(query as any)[method](sql, bindings)
+  }
+
   protected prepareKeyword(keyword: string): string {
     if (this.config.isCaseInsensitive()) {
       keyword = keyword.toLowerCase()
@@ -228,6 +346,7 @@ export default class DatabaseDataTable extends DataTableAbstract {
     }
 
     this.columnSearch()
+    this.columnControlSearch()
 
     if (!this.$skipTotalRecords && this.query === initialQuery) {
       this.filteredRecords ??= this.totalRecords
@@ -361,6 +480,33 @@ export default class DatabaseDataTable extends DataTableAbstract {
         const keyword = this.getColumnSearchKeyword(index)
         this.compileColumnSearch(index, column, keyword)
       }
+    }
+  }
+
+  columnControlSearch(): void {
+    const columns = this.request.columns()
+
+    for (let index = 0; index < columns.length; index++) {
+      let column = this.getColumnName(index)
+
+      if (column === null) {
+        continue
+      }
+
+      if (
+        !this.request.isColumnControlSearch(index) ||
+        (this.isBlacklisted(column) && !this.hasFilterColumn(column))
+      ) {
+        continue
+      }
+
+      const columnControl: any = this.request.columnControlSearch(index)
+
+      if (columnControl['value'] === '' || columnControl['value'] === null) {
+        continue
+      }
+
+      this.compileQueryColumnControlSearch(this.query, column, 'or', columnControl)
     }
   }
 

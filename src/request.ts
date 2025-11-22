@@ -83,6 +83,14 @@ export default class Request {
     )
   }
 
+  isColumnControlSearch(index: number): boolean {
+    return this.input(`columns.${index}.columnControl`, false) ? true : false
+  }
+
+  columnControlSearch(index: number): string {
+    return this.input(`columns.${index}.columnControl.search`, '')
+  }
+
   columnKeyword(index: number): string {
     const keyword: string = this.input(`columns.${index}.search.value`) ?? ''
 

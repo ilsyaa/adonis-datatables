@@ -274,4 +274,18 @@ export default class Helper {
     }
     return target
   }
+
+  static isDate(value: string, type: string) {
+    if (type === 'date' && !value.includes(':')) {
+      return true
+    }
+    return false
+  }
+
+  static isDateTime(value: string, type: string) {
+    if (type === 'date' && value.includes(':')) {
+      return true
+    }
+    return false
+  }
 }

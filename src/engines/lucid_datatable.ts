@@ -29,6 +29,26 @@ export default class LucidDataTable extends DatabaseDataTable {
     })
   }
 
+  protected compileQueryColumnControlSearch(
+    query: ModelQueryBuilderContract<LucidModel, any>,
+    columnName: string,
+    boolean: string = 'or',
+    columnControl: any
+  ): void {
+    const parts = columnName.split('.')
+    const column = parts.pop() as string
+    const relation = parts.join('.')
+
+    if (this.isNotEagerLoaded(relation)) {
+      return super.compileQueryColumnControlSearch(query, columnName, boolean, columnControl)
+    }
+
+    const method: string = lodash.lowerFirst(`${boolean}WhereHas`)
+    ;(query as any)[method](relation, (model: ModelQueryBuilder) => {
+      super.compileQueryColumnControlSearch(model, column, '', columnControl)
+    })
+  }
+
   protected isNotEagerLoaded(relation: string) {
     return (
       relation === '' ||

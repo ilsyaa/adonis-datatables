@@ -53,6 +53,7 @@
     "@release-it/conventional-changelog": "^9.0.3",
     "@swc/core": "1.11.24",
     "@types/lodash": "^4.17.7",
+    "@types/luxon": "^3.7.1",
     "@types/node": "^22.0.0",
     "@types/sprintf-js": "^1.1.4",
     "c8": "^10.1.3",
