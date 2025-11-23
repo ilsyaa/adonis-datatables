@@ -513,7 +513,7 @@ export default class DatabaseDataTable extends DataTableAbstract {
         continue
       }
 
-      this.compileQueryColumnControlSearch(this.query, column, 'or', columnControl)
+      this.compileQueryColumnControlSearch(this.query, column, '', columnControl)
     }
   }
 
