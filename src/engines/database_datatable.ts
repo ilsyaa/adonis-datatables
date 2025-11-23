@@ -405,7 +405,10 @@ export default class DatabaseDataTable extends DataTableAbstract {
   ): string {
     if (!column.includes('.')) {
       const sql = this.getBaseQueryBuilder(query).toSQL().sql
-      const tableName = sql.match(/from\s+`?(\w+)`?/i)?.[1] || ''
+      const regex = /from\s+`?(\w+)`?/ig;
+      const allMatches = [...sql.matchAll(regex)];
+      const lastMatch = allMatches.length > 0 ? allMatches[allMatches.length - 1] : null;
+      const tableName = lastMatch ? lastMatch[1] : '';
       let from: string = tableName
 
       if (typeof from === 'string') {
