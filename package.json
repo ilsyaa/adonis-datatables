@@ -74,7 +74,8 @@
     "sprintf-js": "^1.1.3"
   },
   "peerDependencies": {
-    "@adonisjs/lucid": "^21.2.0"
+    "@adonisjs/core": "^7.0.0",
+    "@adonisjs/lucid": "^22.0.0"
   },
   "keywords": [
     "datatables",
